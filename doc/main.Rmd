@@ -45,6 +45,17 @@ if(!require("WeightedROC")){
   install.packages("WeightedROC")
 }
 
+# if(!require("tensorflow")){
+#   install.packages("tensorflow")
+# }
+
+if(!require("geometry")){
+  install.packages("geometry")
+}
+if(!require("gbm")){
+  install.packages("gbm")
+}
+library(gbm)
 library(R.matlab)
 library(readxl)
 library(dplyr)
@@ -53,12 +64,13 @@ library(ggplot2)
 library(caret)
 library(glmnet)
 library(WeightedROC)
+library(geometry)
 ```
 
 ### Step 0 set work directories
 ```{r wkdir, eval=FALSE}
 set.seed(2020)
-# setwd("~/Project3-FacialEmotionRecognition/doc")
+setwd("../doc")
 # here replace it with your own path or manually set it in RStudio to where this rmd file is located. 
 # use relative path for reproducibility
 ```
@@ -66,9 +78,13 @@ set.seed(2020)
 Provide directories for training images. Training images and Training fiducial points will be in different subfolders. 
 ```{r}
 train_dir <- "../data/train_set/" # This will be modified for different data sets.
+test_dir <- "../data/test_set_predict/" # For the presentation test set
 train_image_dir <- paste(train_dir, "images/", sep="")
 train_pt_dir <- paste(train_dir,  "points/", sep="")
 train_label_path <- paste(train_dir, "label.csv", sep="") 
+test_image_dir <- paste(test_dir, "images/", sep="")
+test_pt_dir <- paste(test_dir,  "points/", sep="")
+test_label_path <- paste(test_dir, "label_prediction.csv", sep="") 
 ```
 
 ### Step 1: set up controls for evaluation experiments.
@@ -83,35 +99,49 @@ In this chunk, we have a set of controls for the evaluation experiments.
 + (T/F) process features for test set
 
 ```{r exp_setup}
-run.cv <- TRUE # run cross-validation on the training set
-sample.reweight <- TRUE # run sample reweighting in model training
-K <- 5  # number of CV folds
+run.default <- TRUE # run default gbm method
+run.fiximage <- TRUE # change the position and zoom in the image
+run.improved <- TRUE # improved feature
 run.feature.train <- TRUE # process features for training set
-run.test <- TRUE # run evaluation on an independent test set
+run.test.claimed <- TRUE # run evaluation on an independent test set
 run.feature.test <- TRUE # process features for test set
+### Important Note
+### Please set run.test.real to FALSE if you are going to train the data
+run.test.real <- FALSE # run the test dataset on present day
+sample.reweight <- TRUE # run sample reweighting in model training
+run.cv <- TRUE # run cross-validation on the training set
+K <- 5  # number of CV folds
 ```
 
-Using cross-validation or independent test set evaluation, we compare the performance of models with different specifications. In this Starter Code, we tune parameter lambda (the amount of shrinkage) for logistic regression with LASSO penalty.
+Using cross-validation or independent test set evaluation, we compare the performance of models with different specifications. In this Base Model gbm, we tune parameter k (the amount of trees) for decision trees with boost gradient.
 
 ```{r model_setup}
-lmbd = c(1e-3, 5e-3, 1e-2, 5e-2, 1e-1)
-model_labels = paste("LASSO Penalty with lambda =", lmbd)
+# number of trees
+k = c(50,100,150,200,250,300)
+model_labels = paste("Boosted Decision Machine with number of trees K =", k)
 ```
 
 ### Step 2: import data and train-test split 
 ```{r}
 #train-test split
-info <- read.csv(train_label_path)
-n <- nrow(info)
-n_train <- round(n*(4/5), 0)
-train_idx <- sample(info$Index, n_train, replace = F)
-test_idx <- setdiff(info$Index, train_idx)
+if ((run.default|run.improved|run.fiximage == TRUE) & (run.test.real == FALSE)){
+  info <- read.csv(train_label_path)
+  n <- nrow(info)
+  n_train <- round(n*(4/5), 0)
+  train_idx <- sample(info$Index, n_train, replace = F)
+  test_idx <- setdiff(info$Index, train_idx)
+}
+# For presentation day specifically
+if (run.test.real == TRUE){
+  info <- read.csv(test_label_path)
+  info$label <- -1 # assign the label to avoid problem not having it
+}
 ```
 
 If you choose to extract features from images, such as using Gabor filter, R memory will exhaust all images are read together. The solution is to repeat reading a smaller batch(e.g 100) and process them. 
+
 ```{r}
 n_files <- length(list.files(train_image_dir))
-
 image_list <- list()
 for(i in 1:100){
    image_list[[i]] <- readImage(paste0(train_image_dir, sprintf("%04d", i), ".jpg"))
@@ -126,10 +156,22 @@ Fiducial points are stored in matlab format. In this step, we read them and stor
 readMat.matrix <- function(index){
      return(round(readMat(paste0(train_pt_dir, sprintf("%04d", index), ".mat"))[[1]],0))
 }
-
 #load fiducial points
 fiducial_pt_list <- lapply(1:n_files, readMat.matrix)
 save(fiducial_pt_list, file="../output/fiducial_pt_list.RData")
+```
+
+Do the data processing part. Rotate the image to be upright and zoom in to get the face and the fiducial points at the center.
+
+```{r}
+if (run.fiximage){
+  source("../lib/img_process.R")
+  fiducial_pt_list_processed <- list()
+  for (i in 1:n){
+    fiducial_pt_list_processed[[i]] <- img_process(fiducial_pt_list[[i]])
+  }
+  save(fiducial_pt_list_processed, file = "../output/fiducial_pt_list_processed.RData")
+}
 ```
 
 ### Step 3: construct features and responses
@@ -143,174 +185,247 @@ and the midpoint of the upper lip(52).  For example, the distance of an happy fa
 
 ![Figure1](../figs/feature_visualization.jpg)
 
-`feature.R` should be the wrapper for all your feature engineering functions and options. The function `feature( )` should have options that correspond to different scenarios for your project and produces an R object that contains features and responses that are required by all the models you are going to evaluate later. 
+`feature_default.R` should be the wrapper for all your feature engineering functions and options. The function `feature_default( )` should have options that correspond to different scenarios for your project and produces an R object that contains features and responses that are required by all the models you are going to evaluate later. 
   
-  + `feature.R`
+  + `feature_default.R`
   + Input: list of images or fiducial point
   + Output: an RData file that contains extracted features and corresponding responses
 
 ```{r feature}
 source("../lib/feature.R")
-tm_feature_train <- NA
-if(run.feature.train){
-  tm_feature_train <- system.time(dat_train <- feature(fiducial_pt_list, train_idx))
-  save(dat_train, file="../output/feature_train.RData")
-}else{
-  load(file="../output/feature_train.RData")
+if(run.default){
+  tm_feature_train_default <- NA
+  if(run.feature.train){
+    tm_feature_train_default <- system.time(dat_train_default <- feature_default(fiducial_pt_list, train_idx))
+    save(dat_train_default, file="../output/feature_train_default.RData")
+    save(tm_feature_train_default, file="../output/tm_feature_train_default.RData")
+  }
+  
+  tm_feature_test_default <- NA
+  if(run.feature.test){
+    tm_feature_test_default <- system.time(dat_test_default <- feature_default(fiducial_pt_list, test_idx))
+    save(dat_test_default, file="../output/feature_test_default.RData")
+    save(tm_feature_test_default, file="../output/tm_feature_test_default.RData")
+  }
 }
-
-tm_feature_test <- NA
-if(run.feature.test){
-  tm_feature_test <- system.time(dat_test <- feature(fiducial_pt_list, test_idx))
-  save(dat_test, file="../output/feature_test.RData")
-}else{
-  load(file="../output/feature_test.RData")
+```
+```{r}
+if(run.fiximage){
+  tm_feature_train <- NA
+  if(run.feature.train){
+    tm_feature_train_imagefix <- system.time(dat_train_imagefix <- feature(fiducial_pt_list_processed, train_idx))
+    save(dat_train_imagefix, file="../output/feature_train_imagefix.RData")
+    save(tm_feature_train_imagefix, file="../output/tm_feature_train_imagefix.RData")
+  }
+  
+  tm_feature_test <- NA
+  if(run.feature.test){
+    tm_feature_test_imagefix <- system.time(dat_test_imagefix <- feature(fiducial_pt_list_processed, test_idx))
+    save(dat_test_imagefix, file="../output/feature_test_imagefix.RData")
+    save(tm_feature_test_imagefix, file="../output/tm_feature_test_imagefix.RData")
+  }
 }
-
-
 ```
 
 ### Step 4: Train a classification model with training features and responses
 Call the train model and test model from library. 
 
-`train.R` and `test.R` should be wrappers for all your model training steps and your classification/prediction steps. 
+`train_default.R` and `test_default.R` should be wrappers for all your model training steps and your classification/prediction steps. 
 
-+ `train.R`
++ `train_default.R`
   + Input: a data frame containing features and labels and a parameter list.
   + Output:a trained model
-+ `test.R`
++ `test_default.R`
   + Input: the fitted classification model using training data and processed features from testing images 
   + Input: an R object that contains a trained classifier.
   + Output: training model specification
 
-+ In this Starter Code, we use logistic regression with LASSO penalty to do classification. 
++ In this Baseline, we use decision trees with gradient boost to do classification. 
 
 ```{r loadlib}
-source("../lib/train.R") 
-source("../lib/test.R")
+source("../lib/train_baseline_gbm.R") 
+source("../lib/test_baseline_gbm.R")
+```
+
+#### Model selection with cross-validation
+* Do model selection by choosing among different values of training model parameters.
+
+```{r runbasecv}
+source("../lib/cross_validation_baseline.R")
+if(run.cv){
+  err_cv <- matrix(0, nrow = length(k), ncol = 2)
+  for(i in 1:length(k)){
+    cat("k=", k[i], "\n")
+    err_cv[i,] <- cv.function(dat_train_default, K, k[i])
+  save(err_cv, file="../output/err_cv.RData")
+  }
+}
+```
+
+Visualize cross-validation results. 
+```{r cv_vis_base}
+if(run.cv){
+  load("../output/err_cv.RData")
+  err_cv <- as.data.frame(err_cv) 
+  colnames(err_cv) <- c("mean_error", "sd_error")
+  err_cv$k = as.factor(k)
+  err_cv %>% 
+    ggplot(aes(x = k, y = mean_error,
+               ymin = mean_error - sd_error, ymax = mean_error + sd_error)) + 
+    geom_crossbar() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+}
+```
+
+* Choose the "best" parameter value
+```{r best_model_base}
+if(run.cv){
+  load("../output/err_cv.RData")
+  err_cv <- as.data.frame(err_cv) # to save the time, can uncomment this two line to directly import the data
+  model_best <- k[which.min(err_cv[,1])]
+}
+par_best <- list(k = model_best)
+```
+
+* Train the model with the entire training set using the selected model (model parameter) via cross-validation.
+```{r final_train_base}
+# training weights
+weight_train <- rep(NA, length(dat_train_default$label))
+for (v in unique(dat_train_default$label)){
+  weight_train[dat_train_default$label == v] = 0.5 * length(dat_train_default$label) / length(dat_train_default$label[dat_train_default$label == v])
+}
+tm_train_default <- system.time(fit_train <- train(dat_train_default, weight_train, par_best))
+save(fit_train, file="../output/fit_train.RData")
+```
+
+### Step 5: Run test on test images
+```{r test_base}
+tm_test_default=NA
+if(run.test.claimed){
+  load(file="../output/fit_train.RData")
+  tm_test_default <- system.time(pred_gbm <- test(fit_train, dat_test_default))
+  weight_test <- rep(NA, length(dat_test_default$label))
+  for (v in unique(dat_test_default$label)){
+    weight_test[dat_test_default$label == v] = 0.5 * length(dat_test_default$label) / length(dat_test_default$label[dat_test_default$label == v])
+  }
+}
+```
+
+* evaluation
+```{r}
+accu <- sum(weight_test * (pred_gbm == dat_test_default$label))/sum(weight_test)
+cat("The accuracy of model:", model_labels[which.min(err_cv[,1])], "is", accu*100, "%.\n")
+auc <- WeightedROC(pred_gbm, dat_test_default$label, weight_test) %>% WeightedAUC
+cat("The AUC of model:", model_labels[which.min(err_cv[,1])], "is", auc, ".\n")
+```
+
+### Summarize Running Time
+Prediction performance matters, so does the running times for constructing features and for training the model, especially when the computation resource is limited. 
+```{r running_time_base}
+cat("Time for constructing default training features=", tm_feature_train_default[1], "s \n")
+cat("Time for constructing default testing features=", tm_feature_test_default[1], "s \n")
+cat("Time for training model=", tm_train_default[1], "s \n") 
+cat("Time for testing model=", tm_test_default[1], "s \n")
+```
+
+## Improved GBM
+
+```{r}
+source("../lib/train_improved_gbm.R") 
+source("../lib/test_improved_gbm.R")
+```
+
+#### Acquire improved features
+```{r}
+feature_improve()
 ```
 
 #### Model selection with cross-validation
 * Do model selection by choosing among different values of training model parameters.
 
 ```{r runcv}
-source("../lib/cross_validation.R")
-feature_train = as.matrix(dat_train[, -6007])
-label_train = as.integer(dat_train$label) 
+source("../lib/cross_validation_improved.R")
+load(file = "../output/feature_train.RData")
+load(file="../output/tm_feature_train.RData")
+load(file = "../output/feature_test.RData")
+load(file="../output/tm_feature_test.RData")
+
 if(run.cv){
-  res_cv <- matrix(0, nrow = length(lmbd), ncol = 4)
-  for(i in 1:length(lmbd)){
-    cat("lambda = ", lmbd[i], "\n")
-    res_cv[i,] <- cv.function(features = feature_train, labels = label_train, K, 
-                              l = lmbd[i], reweight = sample.reweight)
-  save(res_cv, file="../output/res_cv.RData")
+  err_cv_improved <- matrix(0, nrow = length(k), ncol = 2)
+  for(i in 1:length(k)){
+    cat("k=", k[i], "\n")
+    err_cv_improved[i,] <- improved.cv.function(dat_train, K, k[i])
+  save(err_cv_improved, file="../output/err_cv_improved.RData")
   }
-}else{
-  load("../output/res_cv.RData")
 }
 ```
-
 Visualize cross-validation results. 
 ```{r cv_vis}
-  
-res_cv <- as.data.frame(res_cv) 
-colnames(res_cv) <- c("mean_error", "sd_error", "mean_AUC", "sd_AUC")
-res_cv$k = as.factor(lmbd)
-
 if(run.cv){
-  p1 <- res_cv %>% 
-    ggplot(aes(x = as.factor(lmbd), y = mean_error,
+  load("../output/err_cv_improved.RData")
+  err_cv_improved <- as.data.frame(err_cv_improved) 
+  colnames(err_cv_improved) <- c("mean_error", "sd_error")
+  err_cv_improved$k = as.factor(k)
+  err_cv_improved %>% 
+    ggplot(aes(x = k, y = mean_error,
                ymin = mean_error - sd_error, ymax = mean_error + sd_error)) + 
     geom_crossbar() +
     theme(axis.text.x = element_text(angle = 90, hjust = 1))
-  
-  p2 <- res_cv %>% 
-    ggplot(aes(x = as.factor(lmbd), y = mean_AUC,
-               ymin = mean_AUC - sd_AUC, ymax = mean_AUC + sd_AUC)) + 
-    geom_crossbar() +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1))
-  
-  print(p1)
-  print(p2)
 }
-
 
 ```
 
-
 * Choose the "best" parameter value
 ```{r best_model}
-par_best <- lmbd[which.min(res_cv$mean_error)] # lmbd[which.max(res_cv$mean_AUC)]
+if(run.cv){
+  # load("../output/err_cv.RData")
+  # err_cv <- as.data.frame(err_cv) to save the time, can uncomment this two line to directly import the data
+  improved_best <- k[which.min(err_cv_improved[,1])]
+}
+par_improved <- list(k = improved_best)
 ```
 
 * Train the model with the entire training set using the selected model (model parameter) via cross-validation.
 ```{r final_train}
-# training weights
-weight_train <- rep(NA, length(label_train))
-for (v in unique(label_train)){
-  weight_train[label_train == v] = 0.5 * length(label_train) / length(label_train[label_train == v])
+weight_train_improved <- rep(NA, length(dat_train$label))
+for (v in unique(dat_train$label)){
+  weight_train_improved[dat_train$label == v] = 0.5 * length(dat_train$label) / length(dat_train$label[dat_train$label == v])
 }
-if (sample.reweight){
-  tm_train <- system.time(fit_train <- train(feature_train, label_train, w = weight_train, par_best))
-} else {
-  tm_train <- system.time(fit_train <- train(feature_train, label_train, w = NULL, par_best))
-}
-save(fit_train, file="../output/fit_train.RData")
+tm_train_improved <- system.time(fit_train_improved <- train_improved(dat_train, weight_train_improved, par_improved))
+save(fit_train_improved, file="../output/fit_train_improved.RData")
 ```
 
 ### Step 5: Run test on test images
 ```{r test}
-tm_test = NA
-feature_test <- as.matrix(dat_test[, -6007])
+tm_test_improved=NA
 if(run.test){
-  load(file="../output/fit_train.RData")
-  tm_test <- system.time({label_pred <- as.integer(test(fit_train, feature_test, pred.type = 'class')); 
-                          prob_pred <- test(fit_train, feature_test, pred.type = 'response')})
+  load(file="../output/fit_train_improved.RData")
+  tm_test_improved <- system.time(pred_gbm_improved <- test_improved(fit_train_improved, dat_test))
+}
+weight_test_improved <- rep(NA, length(dat_test$label))
+for (v in unique(dat_train$label)){
+  weight_test_improved[dat_test$label == v] = 0.5 * length(dat_test$label) / length(dat_test$label[dat_test$label == v])
 }
 ```
 
 
 * evaluation
 ```{r}
-## reweight the test data to represent a balanced label distribution
-label_test <- as.integer(dat_test$label)
-weight_test <- rep(NA, length(label_test))
-for (v in unique(label_test)){
-  weight_test[label_test == v] = 0.5 * length(label_test) / length(label_test[label_test == v])
-}
-
-accu <- sum(weight_test * (label_pred == label_test)) / sum(weight_test)
-tpr.fpr <- WeightedROC(prob_pred, label_test, weight_test)
-auc <- WeightedAUC(tpr.fpr)
-
-
-cat("The accuracy of model:", model_labels[which.min(res_cv$mean_error)], "is", accu*100, "%.\n")
-cat("The AUC of model:", model_labels[which.min(res_cv$mean_error)], "is", auc, ".\n")
-
-
+accu <- sum(weight_test_improved * (pred_gbm_improved == dat_test$label))/sum(weight_test_improved)
+cat("The accuracy of model:", model_labels[which.min(err_cv_improved[,1])], "is", accu*100, "%.\n")
+auc <- WeightedROC(pred_gbm_improved, dat_test$label, weight_test_improved) %>% WeightedAUC
+cat("The AUC of model:", model_labels[which.min(err_cv_improved[,1])], "is", auc, ".\n")
 ```
 
 ### Summarize Running Time
 Prediction performance matters, so does the running times for constructing features and for training the model, especially when the computation resource is limited. 
 ```{r running_time}
-cat("Time for constructing training features=", tm_feature_train[1], "s \n")
-cat("Time for constructing testing features=", tm_feature_test[1], "s \n")
-cat("Time for training model=", tm_train[1], "s \n") 
-cat("Time for testing model=", tm_test[1], "s \n")
+cat("Time for constructing default training features=", tm_feature_train[1], "s \n")
+cat("Time for constructing default testing features=", tm_feature_test[1], "s \n")
+cat("Time for training model=", tm_train_improved[1], "s \n") 
+cat("Time for testing model=", tm_test_improved[1], "s \n")
 ```
 
 ###Reference
 - Du, S., Tao, Y., & Martinez, A. M. (2014). Compound facial expressions of emotion. Proceedings of the National Academy of Sciences, 111(15), E1454-E1462.
-
-
-
-
-
-
-
-
-
-
-
-
 
