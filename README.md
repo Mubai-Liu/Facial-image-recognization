@@ -8,7 +8,7 @@ Term: Fall 2020
 
 + Team 8
 + Team members
-	+ Mubai Li
+	+ Mubai Liu
 	+ Sneha Swati
 	+ Zihan Chen
 	+ Henan Xu
