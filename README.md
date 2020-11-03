@@ -15,7 +15,7 @@ Term: Fall 2020
 	+ Ziyu Kong
 	+ Jaival Desai
 
-+ Project summary: In this project, we developed a new method and improved the classification accuracy for images of emotions on faces to ...% AUc and ...Accuracy....
++ Project summary: In this project, we developed a new method (Image Transpose + Modified Feature + XGBoost) and improved the classification accuracy for images of emotions on faces to .73 AUC and 88% Accuracy. 
 
 	
 **Contribution statement**: "S" created the KNN Model, Created PPT slides, orginized the code (comments), tried to update Baseline, apprized the group of the main target points of the project. "H" ceated the XGBoost Model, Modified Features to be added to the Models and Updated PPT Slides, Presented, helped in understanding the cross validation code, cross validated. "M" created the CNN, Updated the Baseline Model (final Model), orginized the code, compiled the data, helped in understanding the baseline code, cross validated. "ZC" created the Image transpose code to be added to the most of the Models. "ZK" . "J". 
