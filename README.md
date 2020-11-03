@@ -6,13 +6,14 @@
 
 Term: Fall 2020
 
-+ Team ##
++ Team 8
 + Team members
-	+ team member 1
-	+ team member 2
-	+ team member 3
-	+ team member 4
-	+ team member 5
+	+ Mubai
+	+ Sneha Swati
+	+ Zihan Chen
+	+ Henan 
+	+ Genie
+	+ Jaival Desai
 
 + Project summary: In this project, we created a classification engine for facial emotion recognition. 
 	
