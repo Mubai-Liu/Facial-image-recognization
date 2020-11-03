@@ -18,7 +18,7 @@ Term: Fall 2020
 + Project summary: In this project, we developed a new method and improved the classification accuracy for images of emotions on faces to ...% AUc and ...Accuracy....
 
 	
-**Contribution statement**: "S" created the KNN Model, Created PPT slides, orginized the code, apprized the group of the main targets of the project. "H" ceated the XGBoost Model, Modified Features to be added to the Models and Updated PPT Slides, Presented, helped in understandign the cross validation code. "M" created the CNN, Updated the Baseline Model, orginized the code, compiled the data, helped in understandign the baseline code. "Z" created the Image transpose code to be added to the Models, helped in understandign the baseline code. "G"  "J". 
+**Contribution statement**: "S" created the KNN Model, Created PPT slides, orginized the code (comments), tried to update Baseline, apprized the group of the main target points of the project. "H" ceated the XGBoost Model, Modified Features to be added to the Models and Updated PPT Slides, Presented, helped in understandign the cross validation code, cross validated. "M" created the CNN, Updated the Baseline Model (final Model), orginized the code, compiled the data, helped in understandign the baseline code, cross validated. "Z" created the Image transpose code to be added to the most of the Models, cross validated, helped in understandign the baseline code. "G"  "J". 
 
 Following [suggestions](http://nicercode.github.io/blog/2013-04-05-projects/) by [RICH FITZJOHN](http://nicercode.github.io/about/#Team) (@richfitz). This folder is orgarnized as follows.
 
