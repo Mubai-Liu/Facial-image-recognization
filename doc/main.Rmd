@@ -141,10 +141,19 @@ if (run.test.real == TRUE){
 If you choose to extract features from images, such as using Gabor filter, R memory will exhaust all images are read together. The solution is to repeat reading a smaller batch(e.g 100) and process them. 
 
 ```{r}
-n_files <- length(list.files(train_image_dir))
-image_list <- list()
-for(i in 1:100){
-   image_list[[i]] <- readImage(paste0(train_image_dir, sprintf("%04d", i), ".jpg"))
+if ((run.default|run.improved|run.fiximage == TRUE) & (run.test.real == FALSE)){
+  n_files <- length(list.files(train_image_dir))
+  image_list <- list()
+  for(i in 1:100){
+     image_list[[i]] <- readImage(paste0(train_image_dir, sprintf("%04d", i), ".jpg"))
+  }
+}
+if (run.test.real == TRUE){
+  n_files <- length(list.files(test_image_dir))
+  image_list <- list()
+  for(i in 1:100){
+     image_list[[i]] <- readImage(paste0(test_image_dir, sprintf("%04d", i), ".jpg"))
+  }
 }
 ```
 
@@ -153,24 +162,21 @@ Fiducial points are stored in matlab format. In this step, we read them and stor
 #function to read fiducial points
 #input: index
 #output: matrix of fiducial points corresponding to the index
-readMat.matrix <- function(index){
-     return(round(readMat(paste0(train_pt_dir, sprintf("%04d", index), ".mat"))[[1]],0))
-}
-#load fiducial points
-fiducial_pt_list <- lapply(1:n_files, readMat.matrix)
-save(fiducial_pt_list, file="../output/fiducial_pt_list.RData")
-```
-
-Do the data processing part. Rotate the image to be upright and zoom in to get the face and the fiducial points at the center.
-
-```{r}
-if (run.fiximage){
-  source("../lib/img_process.R")
-  fiducial_pt_list_processed <- list()
-  for (i in 1:n){
-    fiducial_pt_list_processed[[i]] <- img_process(fiducial_pt_list[[i]])
+if ((run.default|run.improved|run.fiximage == TRUE) & (run.test.real == FALSE)){
+  readMat.matrix <- function(index){
+       return(round(readMat(paste0(train_pt_dir, sprintf("%04d", index), ".mat"))[[1]],0))
   }
-  save(fiducial_pt_list_processed, file = "../output/fiducial_pt_list_processed.RData")
+  #load fiducial points
+  fiducial_pt_list <- lapply(1:n_files, readMat.matrix)
+  save(fiducial_pt_list, file="../output/fiducial_pt_list.RData")
+}
+if (run.test.real == TRUE){
+  readMat.matrix <- function(index){
+       return(round(readMat(paste0(test_pt_dir, sprintf("%04d", index), ".mat"))[[1]],0))
+  }
+  #load fiducial points
+  fiducial_pt_list <- lapply(1:n_files, readMat.matrix)
+  save(fiducial_pt_list, file="../output/fiducial_pt_list_test.RData") 
 }
 ```
 
@@ -206,23 +212,6 @@ if(run.default){
     tm_feature_test_default <- system.time(dat_test_default <- feature_default(fiducial_pt_list, test_idx))
     save(dat_test_default, file="../output/feature_test_default.RData")
     save(tm_feature_test_default, file="../output/tm_feature_test_default.RData")
-  }
-}
-```
-```{r}
-if(run.fiximage){
-  tm_feature_train <- NA
-  if(run.feature.train){
-    tm_feature_train_imagefix <- system.time(dat_train_imagefix <- feature(fiducial_pt_list_processed, train_idx))
-    save(dat_train_imagefix, file="../output/feature_train_imagefix.RData")
-    save(tm_feature_train_imagefix, file="../output/tm_feature_train_imagefix.RData")
-  }
-  
-  tm_feature_test <- NA
-  if(run.feature.test){
-    tm_feature_test_imagefix <- system.time(dat_test_imagefix <- feature(fiducial_pt_list_processed, test_idx))
-    save(dat_test_imagefix, file="../output/feature_test_imagefix.RData")
-    save(tm_feature_test_imagefix, file="../output/tm_feature_test_imagefix.RData")
   }
 }
 ```
@@ -313,6 +302,8 @@ if(run.test.claimed){
 
 * evaluation
 ```{r}
+### Training Accuracy
+# sum(weight_train*(test(fit_train, dat_train_default) == dat_train_default$label))/sum(weight_train)
 accu <- sum(weight_test * (pred_gbm == dat_test_default$label))/sum(weight_test)
 cat("The accuracy of model:", model_labels[which.min(err_cv[,1])], "is", accu*100, "%.\n")
 auc <- WeightedROC(pred_gbm, dat_test_default$label, weight_test) %>% WeightedAUC
@@ -335,8 +326,25 @@ source("../lib/train_improved_gbm.R")
 source("../lib/test_improved_gbm.R")
 ```
 
+
+### Data Preprocessing
+Do the data processing part. Rotate the image to be upright and zoom in to get the face and the fiducial points at the center.
+
+```{r}
+if (run.fiximage){
+  source("../lib/img_process.R")
+  fiducial_pt_list_processed <- list()
+  for (i in 1:n){
+    fiducial_pt_list_processed[[i]] <- img_process(fiducial_pt_list[[i]])
+  }
+  save(fiducial_pt_list_processed, file = "../output/fiducial_pt_list_processed.RData")
+}
+```
+
+
 #### Acquire improved features
 ```{r}
+load("../output/fiducial_pt_list_processed.RData")
 feature_improve()
 ```
 
