@@ -5,14 +5,14 @@ feature_improve <- function(){
   if(run.improved){
     tm_feature_train <- NA
     if(run.feature.train){
-      tm_feature_train <- system.time(dat_train <- feature(fiducial_pt_list, train_idx))
+      tm_feature_train <- system.time(dat_train <- feature(fiducial_pt_list_processed, train_idx))
       save(dat_train, file="../output/feature_train.RData")
       save(tm_feature_train, file="../output/tm_feature_train.RData")
     }
     
     tm_feature_test <- NA
     if(run.feature.test){
-      tm_feature_test <- system.time(dat_test <- feature(fiducial_pt_list, test_idx))
+      tm_feature_test <- system.time(dat_test <- feature(fiducial_pt_list_processed, test_idx))
       save(dat_test, file="../output/feature_test.RData")
       save(tm_feature_test, file="../output/tm_feature_test.RData")
     }

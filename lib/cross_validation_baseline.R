@@ -76,7 +76,7 @@ cv.function <- function(dat_train, K, k){
     test.data <- dat_train[s == i,]
     
     par <- list(k = k)
-    fit <- train(train.data, par)
+    fit <- train(feature_df = train.data, par = par)
     
     pred <- test(fit, test.data)  
     error <- mean(pred != test.data$label) 
