@@ -273,9 +273,9 @@ if(run.test.claimed){
 ### evaluation
 ```{r}
 ### Training Accuracy
-accu <- sum(weight_test * (pred_gbm == dat_test_default$label))/sum(weight_test)
+accu <- sum(weight_test * (pred_gbm[[2]] == dat_test_default$label))/sum(weight_test)
 cat("The accuracy of model:", model_labels[which.min(err_cv[,1])], "is", accu*100, "%.\n") # accuracy
-auc <- WeightedROC(pred_gbm, dat_test_default$label, weight_test) %>% WeightedAUC # weighted
+auc <- WeightedROC(pred_gbm[[1]], dat_test_default$label, weight_test) %>% WeightedAUC # weighted
 cat("The AUC of model:", model_labels[which.min(err_cv[,1])], "is", auc, ".\n") # AUC
 ```
 
