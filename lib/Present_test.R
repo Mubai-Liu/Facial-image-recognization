@@ -59,7 +59,7 @@ pred_gbm <- test(fit_train, real_test)[[2]]
 
 load("../output/xgb_model.RData")
 fiducial_pt_list_processed <- list()
-for (i in 1:n){
+for (i in 1:n_files){
   fiducial_pt_list_processed[[i]] <- img_process(fiducial_pt_list[[i]])
 }
 # 16m45s to run
