@@ -419,6 +419,7 @@ load("../output/feature_test.RData")
 xgb_result_test <- xgb_test(xgb_model, dat_test[,-ncol(dat_test)])
 xgb_pred <- xgb_result_test[[1]]
 tm.xgb.test <- xgb_result_test[[2]]
+save(tm.xgb.test, file = "../output/tm.xgb.test.RData") #save Rdata
 
 weight_test_improved <- rep(NA, length(dat_test$label))
 for (v in unique(dat_train$label)){
