@@ -24,6 +24,7 @@ run.test.real <- TRUE # Change this to TRUE when actually running!!!
 
 test_dir <- "../data/test_set_predict/" # For the presentation test set
 test_image_dir <- paste(test_dir, "images/", sep="")
+train_image_dir <- paste(test_dir, "images/", sep="")
 test_pt_dir <- paste(test_dir,  "points/", sep="")
 test_label_path <- paste(test_dir, "label_prediction.csv", sep="") 
 if (run.test.real == TRUE){
