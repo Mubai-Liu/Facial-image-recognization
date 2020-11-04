@@ -12,6 +12,6 @@ test_improved <- function(gbm_model, dat_test){
   
   ### make predictions
   pred <- predict.gbm(gbm_model$model, newdata = dat_test, n.trees = gbm_model$k, type = "response")
-  pred <- round(pred)
-  return(pred)
+  pred_class <- round(pred)
+  return(list(pred, pred_class))
 }
