@@ -1,16 +1,15 @@
 ---
 title: "Main"
-author: "Chengliang Tang, Yujie Wang, Diane Lu, Tian Zheng"
-output:
+author: Group 8
+  output:
   pdf_document: default
   html_notebook: default
 ---
 
-In your final repo, there should be an R markdown file that organizes **all computational steps** for evaluating your proposed Facial Expression Recognition framework. 
+# Evaluating proposed Facial Expression Recognition framework.
 
-This file is currently a template for running evaluation experiments. You should update it according to your codes but following precisely the same structure. 
-
-```{r message=FALSE}
+### Packages needed for evaluating proposed Facial Expression Recognition framework. The "if statement" checks if it is needed. The Library statements are used to call forth the function. 
+```{r message=FALSE, warning=FALSE}
 if(!require("EBImage")){
   install.packages("BiocManager")
   BiocManager::install("EBImage")
@@ -45,16 +44,28 @@ if(!require("WeightedROC")){
   install.packages("WeightedROC")
 }
 
-# if(!require("tensorflow")){
-#   install.packages("tensorflow")
-# }
-
 if(!require("geometry")){
   install.packages("geometry")
 }
 if(!require("gbm")){
   install.packages("gbm")
 }
+if(!require("smotefamily")){
+  install.packages("smotefamily")
+}
+if(!require("ROSE")){
+  install.packages("ROSE")
+}
+if(!require("xgboost")){
+  install.packages("xgboost")
+}
+if(!require("tidyr")){
+  install.packages("tidyr")
+}
+if(!require("e1071")){
+  install.packages("e1071")
+}
+
 library(gbm)
 library(R.matlab)
 library(readxl)
@@ -65,39 +76,33 @@ library(caret)
 library(glmnet)
 library(WeightedROC)
 library(geometry)
+library(smotefamily)
+library(ROSE)
+library(xgboost)
+library(tidyr)
+library(e1071)
+library(ROCR)
 ```
 
-### Step 0 set work directories
+### Step 0 set work directories and set the seed.
 ```{r wkdir, eval=FALSE}
 set.seed(2020)
 setwd("../doc")
-# here replace it with your own path or manually set it in RStudio to where this rmd file is located. 
-# use relative path for reproducibility
 ```
 
-Provide directories for training images. Training images and Training fiducial points will be in different subfolders. 
+### Directories for training images and training fiducial points. The data is located in different subfolders. 
 ```{r}
 train_dir <- "../data/train_set/" # This will be modified for different data sets.
 test_dir <- "../data/test_set_predict/" # For the presentation test set
-train_image_dir <- paste(train_dir, "images/", sep="")
-train_pt_dir <- paste(train_dir,  "points/", sep="")
-train_label_path <- paste(train_dir, "label.csv", sep="") 
-test_image_dir <- paste(test_dir, "images/", sep="")
-test_pt_dir <- paste(test_dir,  "points/", sep="")
-test_label_path <- paste(test_dir, "label_prediction.csv", sep="") 
+train_image_dir <- paste(train_dir, "images/", sep="") # subfolder images
+train_pt_dir <- paste(train_dir,  "points/", sep="") # subfolder points
+train_label_path <- paste(train_dir, "label.csv", sep="") # not in a subfolder
+test_image_dir <- paste(test_dir, "images/", sep="") # subfolder images
+test_pt_dir <- paste(test_dir,  "points/", sep="") # subfolder points
+test_label_path <- paste(test_dir, "label_prediction.csv", sep="") # not in subfolders
 ```
 
-### Step 1: set up controls for evaluation experiments.
-
-In this chunk, we have a set of controls for the evaluation experiments. 
-
-+ (T/F) cross-validation on the training set
-+ (T/F) reweighting the samples for training set 
-+ (number) K, the number of CV folds
-+ (T/F) process features for training set
-+ (T/F) run evaluation on an independent test set
-+ (T/F) process features for test set
-
+### Step 1: set up controls for evaluation experiments. 
 ```{r exp_setup}
 run.default <- TRUE # run default gbm method
 run.fiximage <- TRUE # change the position and zoom in the image
@@ -111,25 +116,24 @@ run.test.real <- FALSE # run the test dataset on present day
 sample.reweight <- TRUE # run sample reweighting in model training
 run.cv <- TRUE # run cross-validation on the training set
 K <- 5  # number of CV folds
+run.xgb.rose <- FALSE # for evaluation using rose
+run.xgb.smote <- FALSE # for evaluating using smote
 ```
 
-Using cross-validation or independent test set evaluation, we compare the performance of models with different specifications. In this Base Model gbm, we tune parameter k (the amount of trees) for decision trees with boost gradient.
-
+### Using cross-validation or independent test set evaluation, we compare the performance of models with different specifications. In this Base Model gbm, we tune parameter k (the amount of trees) for decision trees with boost gradient.
 ```{r model_setup}
-# number of trees
-k = c(50,100,150,200,250,300)
+k = c(50,100,150,200,250,300) # number of trees
 model_labels = paste("Boosted Decision Machine with number of trees K =", k)
 ```
 
 ### Step 2: import data and train-test split 
 ```{r}
-#train-test split
-if ((run.default|run.improved|run.fiximage == TRUE) & (run.test.real == FALSE)){
-  info <- read.csv(train_label_path)
-  n <- nrow(info)
+if ((run.default|run.improved|run.fiximage == TRUE) & (run.test.real == FALSE)){ # train-test split
+  info <- read.csv(train_label_path) #reading in the data
+  n <- nrow(info) #number of rows
   n_train <- round(n*(4/5), 0)
-  train_idx <- sample(info$Index, n_train, replace = F)
-  test_idx <- setdiff(info$Index, train_idx)
+  train_idx <- sample(info$Index, n_train, replace = F) # train data
+  test_idx <- setdiff(info$Index, train_idx) # test data
 }
 # For presentation day specifically
 if (run.test.real == TRUE){
@@ -138,7 +142,7 @@ if (run.test.real == TRUE){
 }
 ```
 
-If you choose to extract features from images, such as using Gabor filter, R memory will exhaust all images are read together. The solution is to repeat reading a smaller batch(e.g 100) and process them. 
+### If you choose to extract features from images, such as using Gabor filter, R memory will exhaust all images are read together. The solution is to repeat reading a smaller batch(e.g 100) and process them. 
 
 ```{r}
 if ((run.default|run.improved|run.fiximage == TRUE) & (run.test.real == FALSE)){
@@ -199,6 +203,7 @@ and the midpoint of the upper lip(52).  For example, the distance of an happy fa
 
 ```{r feature}
 source("../lib/feature.R")
+source("../lib/feature_default.R")
 if(run.default){
   tm_feature_train_default <- NA
   if(run.feature.train){
@@ -319,11 +324,12 @@ cat("Time for training model=", tm_train_default[1], "s \n")
 cat("Time for testing model=", tm_test_default[1], "s \n")
 ```
 
-## Improved GBM
+## XGBoost with improved features
 
 ```{r}
-source("../lib/train_improved_gbm.R") 
-source("../lib/test_improved_gbm.R")
+source("../lib/xgb_tune.R") 
+source("../lib/xgb_train.R")
+source("../lib/xgb_test.R")
 ```
 
 
@@ -341,75 +347,127 @@ if (run.fiximage){
 }
 ```
 
-
 #### Acquire improved features
 ```{r}
+source("../lib/feature.R")
 load("../output/fiducial_pt_list_processed.RData")
-feature_improve()
+
+tm_feature_train <- NA
+if(run.feature.train){
+  tm_feature_train <- system.time(dat_train <- feature(fiducial_pt_list_processed, train_idx))
+  save(dat_train, file="../output/feature_train.RData")
+  save(tm_feature_train, file="../output/tm_feature_train.RData")
+}
+
+tm_feature_test <- NA
+if(run.feature.test){
+  tm_feature_test <- system.time(dat_test <- feature(fiducial_pt_list_processed, test_idx))
+  save(dat_test, file="../output/feature_test.RData")
+  save(tm_feature_test, file="../output/tm_feature_test.RData")
+}
+```
+
+#### Oversample to tackle imbalance in train data
+```{r}
+load("../output/feature_train.RData")
+
+#Oversample using ROSE
+dat_train_balanced_over_rose <- 
+  ovun.sample(label ~ ., data = dat_train, method = "over", 
+              N = as.numeric(table(dat_train$label)[1]) * 2)$data
+table(dat_train_balanced_over_rose$label)
+save(dat_train_balanced_over_rose, file = "../output/dat_train_balanced_over_rose.RData")
+
+#Oversample using SMOTE
+dat_train_balanced_over_smote <-
+  smotefamily::SMOTE(dat_train[ ,-152], as.numeric(dat_train$label))$data
+colnames(dat_train_balanced_over_smote)[which(names(dat_train_balanced_over_smote) == "class")] <- "label"
+dat_train_balanced_over_smote$label[which(dat_train_balanced_over_smote$label == 1)] <- 0
+dat_train_balanced_over_smote$label[which(dat_train_balanced_over_smote$label == 2)] <- 1
+table(dat_train_balanced_over_smote$label)
+save(dat_train_balanced_over_smote, file = "../output/dat_train_balanced_over_smote.RData")
 ```
 
 #### Model selection with cross-validation
 * Do model selection by choosing among different values of training model parameters.
 
 ```{r runcv}
-source("../lib/cross_validation_improved.R")
-load(file = "../output/feature_train.RData")
-load(file="../output/tm_feature_train.RData")
-load(file = "../output/feature_test.RData")
-load(file="../output/tm_feature_test.RData")
-
-if(run.cv){
-  err_cv_improved <- matrix(0, nrow = length(k), ncol = 2)
-  for(i in 1:length(k)){
-    cat("k=", k[i], "\n")
-    err_cv_improved[i,] <- improved.cv.function(dat_train, K, k[i])
-  save(err_cv_improved, file="../output/err_cv_improved.RData")
-  }
-}
-```
-Visualize cross-validation results. 
-```{r cv_vis}
-if(run.cv){
-  load("../output/err_cv_improved.RData")
-  err_cv_improved <- as.data.frame(err_cv_improved) 
-  colnames(err_cv_improved) <- c("mean_error", "sd_error")
-  err_cv_improved$k = as.factor(k)
-  err_cv_improved %>% 
-    ggplot(aes(x = k, y = mean_error,
-               ymin = mean_error - sd_error, ymax = mean_error + sd_error)) + 
-    geom_crossbar() +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+if(run.cv & run.xgb.rose){
+  source("../lib/xgb_tune.R")
+  load("../output/dat_train_balanced_over_rose.RData")
+  
+  depth <- c(5, 10, 15)
+  child <- c(3, 5, 10)
+  xgb_result_cv <- xgb_tune(dat_train_balanced_over_rose, depth, child, K)
+  xgb_err <- xgb_result_cv[[1]]
+  tm.xgb.cv <- as.numeric(xgb_result_cv[[3]])
+  xgb_err_tune <- xgb_result_cv[[1]] %>% as.data.frame()
+  xgb_best_par <- xgb_result_cv[[2]] %>% as.data.frame()
 }
 
-```
-
-* Choose the "best" parameter value
-```{r best_model}
-if(run.cv){
-  # load("../output/err_cv.RData")
-  # err_cv <- as.data.frame(err_cv) to save the time, can uncomment this two line to directly import the data
-  improved_best <- k[which.min(err_cv_improved[,1])]
+if(run.cv & run.xgb.smote){
+  source("../lib/xgb_tune.R")
+  load("../output/dat_train_balanced_over_smote.RData")
+  
+  depth <- c(5, 10, 15)
+  child <- c(3, 5, 10)
+  xgb_result_cv <- xgb_tune(dat_train_balanced_over_smote, depth, child, K)
+  xgb_err <- xgb_result_cv[[1]]
+  tm.xgb.cv <- as.numeric(xgb_result_cv[[3]])
+  xgb_err_tune <- xgb_result_cv[[1]] %>% as.data.frame()
+  xgb_best_par <- xgb_result_cv[[2]] %>% as.data.frame()
 }
-par_improved <- list(k = improved_best)
 ```
 
 * Train the model with the entire training set using the selected model (model parameter) via cross-validation.
 ```{r final_train}
-weight_train_improved <- rep(NA, length(dat_train$label))
-for (v in unique(dat_train$label)){
-  weight_train_improved[dat_train$label == v] = 0.5 * length(dat_train$label) / length(dat_train$label[dat_train$label == v])
+if(run.xgb.rose){
+  source("../lib/xgb_train.R")
+  load("../output/dat_train_balanced_over_rose.RData")
+  
+  if(run.cv){
+    xgb_result <- xgb_train(dat_train_balanced_over_rose, par = xgb_best_par)
+    }
+  else{
+    xgb_result <- xgb_train(dat_train_balanced_over_rose)
+    }
+  xgb_model <- xgb_result[[1]]
+  tm.xgb.train <- xgb_result[[2]]
+  save(xgb_model, file = "../output/xgb_model.RData")
+  save(tm.xgb.train, file = "../output/tm.xgb.train.RData")
 }
-tm_train_improved <- system.time(fit_train_improved <- train_improved(dat_train, weight_train_improved, par_improved))
-save(fit_train_improved, file="../output/fit_train_improved.RData")
+
+if(run.xgb.smote){
+  source("../lib/xgb_train.R")
+  load("../output/dat_train_balanced_over_smote.RData")
+  
+  if(run.cv){
+    xgb_result <- xgb_train(dat_train_balanced_over_smote, par = xgb_best_par)
+    }
+  else{
+    xgb_result <- xgb_train(dat_train_balanced_over_smote)
+    }
+  xgb_model <- xgb_result[[1]]
+  tm.xgb.train <- xgb_result[[2]]
+  save(xgb_model, file = "../output/xgb_model.RData")
+  save(tm.xgb.train, file = "../output/tm.xgb.train.RData")
+}
+
+
 ```
 
 ### Step 5: Run test on test images
 ```{r test}
-tm_test_improved=NA
-if(run.test){
-  load(file="../output/fit_train_improved.RData")
-  tm_test_improved <- system.time(pred_gbm_improved <- test_improved(fit_train_improved, dat_test))
-}
+#Prediction of the xgb models
+source("../lib/xgb_test.R")
+load("../output/xgb_model.RData")
+load("../output/feature_test.RData")
+
+xgb_result_test <- xgb_test(xgb_model, dat_test[,-ncol(dat_test)])
+xgb_pred <- xgb_result_test[[1]]
+tm.xgb.test <- xgb_result_test[[2]]
+xgb_pred_class <- apply(xgb_pred, 1, which.max) - 2
+
 weight_test_improved <- rep(NA, length(dat_test$label))
 for (v in unique(dat_train$label)){
   weight_test_improved[dat_test$label == v] = 0.5 * length(dat_test$label) / length(dat_test$label[dat_test$label == v])
@@ -419,10 +477,10 @@ for (v in unique(dat_train$label)){
 
 * evaluation
 ```{r}
-accu <- sum(weight_test_improved * (pred_gbm_improved == dat_test$label))/sum(weight_test_improved)
-cat("The accuracy of model:", model_labels[which.min(err_cv_improved[,1])], "is", accu*100, "%.\n")
-auc <- WeightedROC(pred_gbm_improved, dat_test$label, weight_test_improved) %>% WeightedAUC
-cat("The AUC of model:", model_labels[which.min(err_cv_improved[,1])], "is", auc, ".\n")
+accu <- sum(weight_test_improved * (xgb_pred_class == dat_test$label))/sum(weight_test_improved)
+cat("The accuracy of model",  accu*100, "%.\n")
+auc <- WeightedROC(xgb_pred_class, dat_test$label, weight_test_improved) %>% WeightedAUC
+cat("The AUC of model", "is", auc, ".\n")
 ```
 
 ### Summarize Running Time
@@ -430,8 +488,8 @@ Prediction performance matters, so does the running times for constructing featu
 ```{r running_time}
 cat("Time for constructing default training features=", tm_feature_train[1], "s \n")
 cat("Time for constructing default testing features=", tm_feature_test[1], "s \n")
-cat("Time for training model=", tm_train_improved[1], "s \n") 
-cat("Time for testing model=", tm_test_improved[1], "s \n")
+cat("Time for training model=", tm.xgb.train[1], "s \n") 
+cat("Time for testing model=", tm.xgb.test[1], "s \n")
 ```
 
 ###Reference
