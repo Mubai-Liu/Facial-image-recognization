@@ -49,7 +49,7 @@ real_test <- feature_default(fiducial_pt_list, test_index)
 # Loading GBM
 load("../output/fit_train.RData")
 real_test <- real_test %>% select(-label)
-pred_gbm <- test(fit_train, real_test)[[1]]
+pred_gbm <- test(fit_train, real_test)[[2]]
 
 # 1 mins for above code
 # ---------------# XGBoost
