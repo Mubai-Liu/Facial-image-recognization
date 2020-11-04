@@ -21,30 +21,24 @@ if(!require("R.matlab")){
 if(!require("readxl")){
   install.packages("readxl")
 }
-
 if(!require("dplyr")){
   install.packages("dplyr")
 }
 if(!require("readxl")){
   install.packages("readxl")
 }
-
 if(!require("ggplot2")){
   install.packages("ggplot2")
 }
-
 if(!require("caret")){
   install.packages("caret")
 }
-
 if(!require("glmnet")){
   install.packages("glmnet")
 }
-
 if(!require("WeightedROC")){
   install.packages("WeightedROC")
 }
-
 if(!require("geometry")){
   install.packages("geometry")
 }
@@ -66,7 +60,6 @@ if(!require("tidyr")){
 if(!require("e1071")){
   install.packages("e1071")
 }
-
 library(gbm)
 library(R.matlab)
 library(readxl)
@@ -82,7 +75,6 @@ library(ROSE)
 library(xgboost)
 library(tidyr)
 library(e1071)
-library(ROCR)
 ```
 
 ### Step 0 set work directories and set the seed.
@@ -188,7 +180,6 @@ if (run.test.real == TRUE){ #parameter set to true
 ```{r feature}
 source("../lib/feature_default.R") # + `feature_default.R` + Input: list of images or fiducial point  + Output: an RData
                                     # file that contains extracted features and corresponding responses
-
 if(run.default){ # train responce
   tm_feature_train_default <- NA
   if(run.feature.train){
@@ -322,7 +313,6 @@ if (run.fiximage){
 ```{r}
 source("../lib/feature.R") # source improved feature script
 load("../output/fiducial_pt_list_processed.RData") # load Rdata
-
 tm_feature_train <- NA # feature train
 if(run.feature.train){
   tm_feature_train <- system.time(dat_train <- feature(fiducial_pt_list_processed, train_idx))
@@ -330,7 +320,6 @@ if(run.feature.train){
   save(dat_train, file="../output/feature_train.RData") # save Rdata
   save(tm_feature_train, file="../output/tm_feature_train.RData") # save Rdata
 }
-
 tm_feature_test <- NA # feature test
 if(run.feature.test){
   tm_feature_test <- system.time(dat_test <- feature(fiducial_pt_list_processed, test_idx))
@@ -343,14 +332,12 @@ if(run.feature.test){
 ### Oversample to tackle imbalance in train data
 ```{r}
 load("../output/feature_train.RData")
-
 #Oversample using ROSE
 dat_train_balanced_over_rose <- 
   ovun.sample(label ~ ., data = dat_train, method = "over", 
               N = as.numeric(table(dat_train$label)[1]) * 2)$data
 table(dat_train_balanced_over_rose$label)
 save(dat_train_balanced_over_rose, file = "../output/dat_train_balanced_over_rose.RData") #save Rdata
-
 #Oversample using SMOTE
 dat_train_balanced_over_smote <-
   smotefamily::SMOTE(dat_train[ ,-152], as.numeric(dat_train$label))$data
@@ -375,7 +362,6 @@ if(run.cv & run.xgb.rose){
   xgb_err_tune <- xgb_result_cv[[1]] %>% as.data.frame() 
   xgb_best_par <- xgb_result_cv[[2]] %>% as.data.frame()
 }
-
 if(run.cv & run.xgb.smote){
   source("../lib/xgb_tune.R") #source file
   load("../output/dat_train_balanced_over_smote.RData") #load data
@@ -407,7 +393,6 @@ if(run.xgb.rose){
   save(xgb_model, file = "../output/xgb_model.RData") #save Rdata
   save(tm.xgb.train, file = "../output/tm.xgb.train.RData") #save Rdata
 }
-
 if(run.xgb.smote){
   source("../lib/xgb_train.R")
   load("../output/dat_train_balanced_over_smote.RData")
@@ -423,8 +408,6 @@ if(run.xgb.smote){
   save(xgb_model, file = "../output/xgb_model.RData") #save Rdata
   save(tm.xgb.train, file = "../output/tm.xgb.train.RData") #save Rdata
 }
-
-
 ```
 
 ### Step 5: Run test on test images
@@ -433,11 +416,9 @@ if(run.xgb.smote){
 source("../lib/xgb_test.R")
 load("../output/xgb_model.RData")
 load("../output/feature_test.RData")
-
 xgb_result_test <- xgb_test(xgb_model, dat_test[,-ncol(dat_test)])
 xgb_pred <- xgb_result_test[[1]]
 tm.xgb.test <- xgb_result_test[[2]]
-xgb_pred_class <- apply(xgb_pred, 1, which.max) - 2
 
 weight_test_improved <- rep(NA, length(dat_test$label))
 for (v in unique(dat_train$label)){
@@ -448,9 +429,9 @@ for (v in unique(dat_train$label)){
 
 ### evaluation
 ```{r}
-accu <- sum(weight_test_improved * (xgb_pred_class == dat_test$label))/sum(weight_test_improved)
+accu <- sum(weight_test_improved * (xgb_pred == dat_test$label))/sum(weight_test_improved)
 cat("The accuracy of model",  accu*100, "%.\n")
-auc <- WeightedROC(xgb_pred_class, dat_test$label, weight_test_improved) %>% WeightedAUC
+auc <- WeightedROC(xgb_pred, dat_test$label, weight_test_improved) %>% WeightedAUC
 cat("The AUC of model", "is", auc, ".\n")
 ```
 
@@ -465,4 +446,3 @@ cat("Time for testing model=", tm.xgb.test[1], "s \n")
 
 ## Reference
 - Du, S., Tao, Y., & Martinez, A. M. (2014). Compound facial expressions of emotion. Proceedings of the National Academy of Sciences, 111(15), E1454-E1462.
-
