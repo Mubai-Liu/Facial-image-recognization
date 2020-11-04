@@ -16,10 +16,9 @@ xgb_cv <- function(dat_train, K = 5, par=NULL){
     
     fit.model = xgb_train(train.data, par = par)[[1]]
     
-    pred = xgb_test(fit.model, test.data)[[1]] %>% as.data.frame() %>% 
-      mutate(prediction = max.col(., ties.method = "last") - 1)
+    pred = xgb_test(fit.model, test.data)[[1]]
     
-    cv.error[i] = mean(pred$prediction != test.label)
+    cv.error[i] = mean(pred != test.label)
     
   }		
   

@@ -27,9 +27,7 @@ xgb_train <- function(dat_train, par=NULL){
       colsample_bytree = 0.6,
       max_depth = depth,
       min_child_weight = child_weight,
-      objective = "multi:softprob",
-      eval_metric = "mlogloss",
-      num_class = n + 1,
+      objective = "binary:hinge",
       nrounds = 500,
       verbose = 0
     )
