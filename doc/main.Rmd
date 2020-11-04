@@ -429,6 +429,7 @@ for (v in unique(dat_train$label)){
 
 ### evaluation
 ```{r}
+accu.unweighted <- mean(dat_test$label == xgb_pred)
 accu <- sum(weight_test_improved * (xgb_pred == dat_test$label))/sum(weight_test_improved)
 cat("The accuracy of model",  accu*100, "%.\n")
 auc <- WeightedROC(xgb_pred, dat_test$label, weight_test_improved) %>% WeightedAUC
