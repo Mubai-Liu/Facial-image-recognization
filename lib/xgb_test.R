@@ -11,7 +11,8 @@ xgb_test = function(model, dat_test) {
       newdata = test_mat_dat, 
       missing = NA, 
       n.trees = 500, 
-      reshape = TRUE
+      reshape = TRUE,
+      type = "response"
     )
   )
   

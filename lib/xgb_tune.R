@@ -1,7 +1,5 @@
 xgb_tune = function(dat_train, max_depth_values, min_child_weight_values, K = 5){
-
-  source("D:/STAT5243 ADS/Fall2020-Project3-group_8/lib/xgb_cv.R")
-
+  
   # error matrix
   error_matrix = matrix(NA,nrow = length(max_depth_values), length(min_child_weight_values))
   rownames(error_matrix) = paste(max_depth_values)

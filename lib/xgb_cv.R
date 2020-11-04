@@ -1,7 +1,7 @@
 xgb_cv <- function(dat_train, K = 5, par=NULL){
   
-  source("D:/STAT5243 ADS/Fall2020-Project3-group_8/lib/xgb_train.R")
-  source("D:/STAT5243 ADS/Fall2020-Project3-group_8/lib/xgb_test.R")
+  source("../lib/xgb_train.R")
+  source("../lib/xgb_test.R")
   
   n = nrow(dat_train)
   n.fold = floor(n/K)
