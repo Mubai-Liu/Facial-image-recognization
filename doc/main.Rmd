@@ -1,9 +1,8 @@
 ---
 title: "Main"
 author: Group 8
-  output:
-  pdf_document: default
-  html_notebook: default
+date: "11/4/2020"
+output: pdf_document
 ---
 
 # Baseline Model (GBM with default feature)
