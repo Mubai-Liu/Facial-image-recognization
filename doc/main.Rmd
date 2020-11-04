@@ -6,7 +6,8 @@ author: Group 8
   html_notebook: default
 ---
 
-# Evaluating proposed Facial Expression Recognition framework.
+# Baseline Model (GBM with default feature)
+## -- further down feature is updated and added to XGBoost as the proposed new model -- 
 
 ### Packages needed for evaluating proposed Facial Expression Recognition framework. The "if statement" checks if it is needed. The Library statements are used to call forth the function. 
 ```{r message=FALSE, warning=FALSE}
@@ -143,107 +144,81 @@ if (run.test.real == TRUE){
 ```
 
 ### If you choose to extract features from images, such as using Gabor filter, R memory will exhaust all images are read together. The solution is to repeat reading a smaller batch(e.g 100) and process them. 
-
 ```{r}
-if ((run.default|run.improved|run.fiximage == TRUE) & (run.test.real == FALSE)){
+if ((run.default|run.improved|run.fiximage == TRUE) & (run.test.real == FALSE)){ #parameters are set to false
   n_files <- length(list.files(train_image_dir))
   image_list <- list()
-  for(i in 1:100){
+  for(i in 1:100){ #repeat reading a smaller batch(e.g 100) and process them
      image_list[[i]] <- readImage(paste0(train_image_dir, sprintf("%04d", i), ".jpg"))
   }
 }
 if (run.test.real == TRUE){
   n_files <- length(list.files(test_image_dir))
   image_list <- list()
-  for(i in 1:100){
+  for(i in 1:100){ # repeat reading a smaller batch(e.g 100) and process them.
      image_list[[i]] <- readImage(paste0(test_image_dir, sprintf("%04d", i), ".jpg"))
   }
 }
 ```
 
-Fiducial points are stored in matlab format. In this step, we read them and store them in a list.
+### Fiducial points are stored in matlab format. In this step, we read them and store them in a list.
 ```{r read fiducial points}
 #function to read fiducial points
 #input: index
 #output: matrix of fiducial points corresponding to the index
 if ((run.default|run.improved|run.fiximage == TRUE) & (run.test.real == FALSE)){
-  readMat.matrix <- function(index){
+  readMat.matrix <- function(index){ # read the matlab files
        return(round(readMat(paste0(train_pt_dir, sprintf("%04d", index), ".mat"))[[1]],0))
   }
   #load fiducial points
   fiducial_pt_list <- lapply(1:n_files, readMat.matrix)
-  save(fiducial_pt_list, file="../output/fiducial_pt_list.RData")
+  save(fiducial_pt_list, file="../output/fiducial_pt_list.RData") # store data as a RData
 }
-if (run.test.real == TRUE){
-  readMat.matrix <- function(index){
+if (run.test.real == TRUE){ #parameter set to true 
+  readMat.matrix <- function(index){ # read the matlab files
        return(round(readMat(paste0(test_pt_dir, sprintf("%04d", index), ".mat"))[[1]],0))
   }
   #load fiducial points
   fiducial_pt_list <- lapply(1:n_files, readMat.matrix)
-  save(fiducial_pt_list, file="../output/fiducial_pt_list_test.RData") 
+  save(fiducial_pt_list, file="../output/fiducial_pt_list_test.RData") # store data as a RData 
 }
 ```
 
-### Step 3: construct features and responses
-
-+ The follow plots show how pairwise distance between fiducial points can work as feature for facial emotion recognition.
-
-  + In the first column, 78 fiducials points of each emotion are marked in order. 
-  + In the second column distributions of vertical distance between right pupil(1) and  right brow peak(21) are shown in  histograms. For example, the distance of an angry face tends to be shorter than that of a surprised face.
-  + The third column is the distributions of vertical distances between right mouth corner(50)
-and the midpoint of the upper lip(52).  For example, the distance of an happy face tends to be shorter than that of a sad face.
-
-![Figure1](../figs/feature_visualization.jpg)
-
-`feature_default.R` should be the wrapper for all your feature engineering functions and options. The function `feature_default( )` should have options that correspond to different scenarios for your project and produces an R object that contains features and responses that are required by all the models you are going to evaluate later. 
-  
-  + `feature_default.R`
-  + Input: list of images or fiducial point
-  + Output: an RData file that contains extracted features and corresponding responses
-
+### Step 3: construct features and responses (for baseline model)
 ```{r feature}
-source("../lib/feature.R")
-source("../lib/feature_default.R")
-if(run.default){
+source("../lib/feature_default.R") # + `feature_default.R` + Input: list of images or fiducial point  + Output: an RData
+                                    # file that contains extracted features and corresponding responses
+
+if(run.default){ # train responce
   tm_feature_train_default <- NA
   if(run.feature.train){
     tm_feature_train_default <- system.time(dat_train_default <- feature_default(fiducial_pt_list, train_idx))
-    save(dat_train_default, file="../output/feature_train_default.RData")
-    save(tm_feature_train_default, file="../output/tm_feature_train_default.RData")
+    # fratures saved and the runtime saved
+    save(dat_train_default, file="../output/feature_train_default.RData") # save as .Rdata
+    save(tm_feature_train_default, file="../output/tm_feature_train_default.RData") # save as .Rdata
   }
   
-  tm_feature_test_default <- NA
+  tm_feature_test_default <- NA # test responce
   if(run.feature.test){
     tm_feature_test_default <- system.time(dat_test_default <- feature_default(fiducial_pt_list, test_idx))
-    save(dat_test_default, file="../output/feature_test_default.RData")
-    save(tm_feature_test_default, file="../output/tm_feature_test_default.RData")
+    # fratures saved and the runtime saved
+    save(dat_test_default, file="../output/feature_test_default.RData") # save as .Rdata
+    save(tm_feature_test_default, file="../output/tm_feature_test_default.RData") # save as .Rdata
   }
 }
 ```
 
-### Step 4: Train a classification model with training features and responses
-Call the train model and test model from library. 
-
-`train_default.R` and `test_default.R` should be wrappers for all your model training steps and your classification/prediction steps. 
-
-+ `train_default.R`
-  + Input: a data frame containing features and labels and a parameter list.
-  + Output:a trained model
-+ `test_default.R`
-  + Input: the fitted classification model using training data and processed features from testing images 
-  + Input: an R object that contains a trained classifier.
-  + Output: training model specification
-
-+ In this Baseline, we use decision trees with gradient boost to do classification. 
-
+### Step 4: Train a classification model with training features and responses. Call the train model and test model from library. 
 ```{r loadlib}
-source("../lib/train_baseline_gbm.R") 
-source("../lib/test_baseline_gbm.R")
+#In this Baseline, we use decision trees with gradient boost to do classification. 
+source("../lib/train_baseline_gbm.R") # + Input: a data frame containing features and labels and a parameter list.
+                                      #  + Output:a trained model
+source("../lib/test_baseline_gbm.R") #  + Input: the fitted classification model using training data and processed features from testing images 
+                                      # + Input: an R object that contains a trained classifier.
+                                      #  + Output: training model specification
 ```
 
-#### Model selection with cross-validation
-* Do model selection by choosing among different values of training model parameters.
-
+#### Model selection with cross-validation. Done model selection by choosing among different values of training model parameters.
 ```{r runbasecv}
 source("../lib/cross_validation_baseline.R")
 if(run.cv){
@@ -251,12 +226,12 @@ if(run.cv){
   for(i in 1:length(k)){
     cat("k=", k[i], "\n")
     err_cv[i,] <- cv.function(dat_train_default, K, k[i])
-  save(err_cv, file="../output/err_cv.RData")
+  save(err_cv, file="../output/err_cv.RData") #saved as RData
   }
 }
 ```
 
-Visualize cross-validation results. 
+### Visualize cross-validation results. 
 ```{r cv_vis_base}
 if(run.cv){
   load("../output/err_cv.RData")
@@ -271,61 +246,59 @@ if(run.cv){
 }
 ```
 
-* Choose the "best" parameter value
+### Choose the "best" parameter value
 ```{r best_model_base}
 if(run.cv){
   load("../output/err_cv.RData")
   err_cv <- as.data.frame(err_cv) # to save the time, can uncomment this two line to directly import the data
-  model_best <- k[which.min(err_cv[,1])]
+  model_best <- k[which.min(err_cv[,1])] # best model
 }
-par_best <- list(k = model_best)
+par_best <- list(k = model_best) # best parameter value
 ```
 
-* Train the model with the entire training set using the selected model (model parameter) via cross-validation.
+### Train the model with the entire training set using the selected model (model parameter) via cross-validation.
 ```{r final_train_base}
-# training weights
-weight_train <- rep(NA, length(dat_train_default$label))
+weight_train <- rep(NA, length(dat_train_default$label)) # training weights
 for (v in unique(dat_train_default$label)){
   weight_train[dat_train_default$label == v] = 0.5 * length(dat_train_default$label) / length(dat_train_default$label[dat_train_default$label == v])
 }
-tm_train_default <- system.time(fit_train <- train(dat_train_default, weight_train, par_best))
-save(fit_train, file="../output/fit_train.RData")
+tm_train_default <- system.time(fit_train <- train(dat_train_default, weight_train, par_best)) # run time
+save(fit_train, file="../output/fit_train.RData") # save as Rdata
 ```
 
 ### Step 5: Run test on test images
 ```{r test_base}
 tm_test_default=NA
 if(run.test.claimed){
-  load(file="../output/fit_train.RData")
-  tm_test_default <- system.time(pred_gbm <- test(fit_train, dat_test_default))
+  load(file="../output/fit_train.RData") # save as RData
+  tm_test_default <- system.time(pred_gbm <- test(fit_train, dat_test_default)) # run time
   weight_test <- rep(NA, length(dat_test_default$label))
-  for (v in unique(dat_test_default$label)){
+  for (v in unique(dat_test_default$label)){ #unique vlaues selected
     weight_test[dat_test_default$label == v] = 0.5 * length(dat_test_default$label) / length(dat_test_default$label[dat_test_default$label == v])
   }
 }
 ```
 
-* evaluation
+### evaluation
 ```{r}
 ### Training Accuracy
-# sum(weight_train*(test(fit_train, dat_train_default) == dat_train_default$label))/sum(weight_train)
 accu <- sum(weight_test * (pred_gbm == dat_test_default$label))/sum(weight_test)
-cat("The accuracy of model:", model_labels[which.min(err_cv[,1])], "is", accu*100, "%.\n")
-auc <- WeightedROC(pred_gbm, dat_test_default$label, weight_test) %>% WeightedAUC
-cat("The AUC of model:", model_labels[which.min(err_cv[,1])], "is", auc, ".\n")
+cat("The accuracy of model:", model_labels[which.min(err_cv[,1])], "is", accu*100, "%.\n") # accuracy
+auc <- WeightedROC(pred_gbm, dat_test_default$label, weight_test) %>% WeightedAUC # weighted
+cat("The AUC of model:", model_labels[which.min(err_cv[,1])], "is", auc, ".\n") # AUC
 ```
 
 ### Summarize Running Time
-Prediction performance matters, so does the running times for constructing features and for training the model, especially when the computation resource is limited. 
 ```{r running_time_base}
-cat("Time for constructing default training features=", tm_feature_train_default[1], "s \n")
+cat("Time for constructing default training features=", tm_feature_train_default[1], "s \n") 
 cat("Time for constructing default testing features=", tm_feature_test_default[1], "s \n")
 cat("Time for training model=", tm_train_default[1], "s \n") 
 cat("Time for testing model=", tm_test_default[1], "s \n")
 ```
 
-## XGBoost with improved features
+# Proposed Imporved Model (XGBoost with improved features)
 
+### sourcing R files 
 ```{r}
 source("../lib/xgb_tune.R") 
 source("../lib/xgb_train.R")
@@ -333,41 +306,41 @@ source("../lib/xgb_test.R")
 ```
 
 
-### Data Preprocessing
-Do the data processing part. Rotate the image to be upright and zoom in to get the face and the fiducial points at the center.
-
+### Data Preprocessing: Rotate the image to be upright and zoom in to get the face and the fiducial points at the center.
 ```{r}
 if (run.fiximage){
-  source("../lib/img_process.R")
-  fiducial_pt_list_processed <- list()
+  source("../lib/img_process.R") # source in script
+  fiducial_pt_list_processed <- list() #empty list to store points in
   for (i in 1:n){
     fiducial_pt_list_processed[[i]] <- img_process(fiducial_pt_list[[i]])
   }
-  save(fiducial_pt_list_processed, file = "../output/fiducial_pt_list_processed.RData")
+  save(fiducial_pt_list_processed, file = "../output/fiducial_pt_list_processed.RData") #save as Rdata
 }
 ```
 
-#### Acquire improved features
+### Acquire improved features
 ```{r}
-source("../lib/feature.R")
-load("../output/fiducial_pt_list_processed.RData")
+source("../lib/feature.R") # source improved feature script
+load("../output/fiducial_pt_list_processed.RData") # load Rdata
 
-tm_feature_train <- NA
+tm_feature_train <- NA # feature train
 if(run.feature.train){
   tm_feature_train <- system.time(dat_train <- feature(fiducial_pt_list_processed, train_idx))
-  save(dat_train, file="../output/feature_train.RData")
-  save(tm_feature_train, file="../output/tm_feature_train.RData")
+  # save feature data and save runtime
+  save(dat_train, file="../output/feature_train.RData") # save Rdata
+  save(tm_feature_train, file="../output/tm_feature_train.RData") # save Rdata
 }
 
-tm_feature_test <- NA
+tm_feature_test <- NA # feature test
 if(run.feature.test){
   tm_feature_test <- system.time(dat_test <- feature(fiducial_pt_list_processed, test_idx))
-  save(dat_test, file="../output/feature_test.RData")
-  save(tm_feature_test, file="../output/tm_feature_test.RData")
+  # save feature data and save runtime
+  save(dat_test, file="../output/feature_test.RData") # save Rdata
+  save(tm_feature_test, file="../output/tm_feature_test.RData") # save Rdata
 }
 ```
 
-#### Oversample to tackle imbalance in train data
+### Oversample to tackle imbalance in train data
 ```{r}
 load("../output/feature_train.RData")
 
@@ -376,7 +349,7 @@ dat_train_balanced_over_rose <-
   ovun.sample(label ~ ., data = dat_train, method = "over", 
               N = as.numeric(table(dat_train$label)[1]) * 2)$data
 table(dat_train_balanced_over_rose$label)
-save(dat_train_balanced_over_rose, file = "../output/dat_train_balanced_over_rose.RData")
+save(dat_train_balanced_over_rose, file = "../output/dat_train_balanced_over_rose.RData") #save Rdata
 
 #Oversample using SMOTE
 dat_train_balanced_over_smote <-
@@ -385,36 +358,34 @@ colnames(dat_train_balanced_over_smote)[which(names(dat_train_balanced_over_smot
 dat_train_balanced_over_smote$label[which(dat_train_balanced_over_smote$label == 1)] <- 0
 dat_train_balanced_over_smote$label[which(dat_train_balanced_over_smote$label == 2)] <- 1
 table(dat_train_balanced_over_smote$label)
-save(dat_train_balanced_over_smote, file = "../output/dat_train_balanced_over_smote.RData")
+save(dat_train_balanced_over_smote, file = "../output/dat_train_balanced_over_smote.RData") #save Rdata
 ```
 
-#### Model selection with cross-validation
-* Do model selection by choosing among different values of training model parameters.
-
+#### Model selection with cross-validation.Model selection by choosing among different values of training model parameters.
 ```{r runcv}
 if(run.cv & run.xgb.rose){
-  source("../lib/xgb_tune.R")
-  load("../output/dat_train_balanced_over_rose.RData")
+  source("../lib/xgb_tune.R") #source file
+  load("../output/dat_train_balanced_over_rose.RData") #load data
   
-  depth <- c(5, 10, 15)
-  child <- c(3, 5, 10)
+  depth <- c(5, 10, 15) #set parameters
+  child <- c(3, 5, 10) #set parameters
   xgb_result_cv <- xgb_tune(dat_train_balanced_over_rose, depth, child, K)
   xgb_err <- xgb_result_cv[[1]]
   tm.xgb.cv <- as.numeric(xgb_result_cv[[3]])
-  xgb_err_tune <- xgb_result_cv[[1]] %>% as.data.frame()
+  xgb_err_tune <- xgb_result_cv[[1]] %>% as.data.frame() 
   xgb_best_par <- xgb_result_cv[[2]] %>% as.data.frame()
 }
 
 if(run.cv & run.xgb.smote){
-  source("../lib/xgb_tune.R")
-  load("../output/dat_train_balanced_over_smote.RData")
+  source("../lib/xgb_tune.R") #source file
+  load("../output/dat_train_balanced_over_smote.RData") #load data
   
-  depth <- c(5, 10, 15)
-  child <- c(3, 5, 10)
+  depth <- c(5, 10, 15) #set parameters
+  child <- c(3, 5, 10) #set parameters
   xgb_result_cv <- xgb_tune(dat_train_balanced_over_smote, depth, child, K)
   xgb_err <- xgb_result_cv[[1]]
   tm.xgb.cv <- as.numeric(xgb_result_cv[[3]])
-  xgb_err_tune <- xgb_result_cv[[1]] %>% as.data.frame()
+  xgb_err_tune <- xgb_result_cv[[1]] %>% as.data.frame() 
   xgb_best_par <- xgb_result_cv[[2]] %>% as.data.frame()
 }
 ```
@@ -422,8 +393,8 @@ if(run.cv & run.xgb.smote){
 * Train the model with the entire training set using the selected model (model parameter) via cross-validation.
 ```{r final_train}
 if(run.xgb.rose){
-  source("../lib/xgb_train.R")
-  load("../output/dat_train_balanced_over_rose.RData")
+  source("../lib/xgb_train.R") #source file
+  load("../output/dat_train_balanced_over_rose.RData") #load data
   
   if(run.cv){
     xgb_result <- xgb_train(dat_train_balanced_over_rose, par = xgb_best_par)
@@ -433,8 +404,8 @@ if(run.xgb.rose){
     }
   xgb_model <- xgb_result[[1]]
   tm.xgb.train <- xgb_result[[2]]
-  save(xgb_model, file = "../output/xgb_model.RData")
-  save(tm.xgb.train, file = "../output/tm.xgb.train.RData")
+  save(xgb_model, file = "../output/xgb_model.RData") #save Rdata
+  save(tm.xgb.train, file = "../output/tm.xgb.train.RData") #save Rdata
 }
 
 if(run.xgb.smote){
@@ -449,8 +420,8 @@ if(run.xgb.smote){
     }
   xgb_model <- xgb_result[[1]]
   tm.xgb.train <- xgb_result[[2]]
-  save(xgb_model, file = "../output/xgb_model.RData")
-  save(tm.xgb.train, file = "../output/tm.xgb.train.RData")
+  save(xgb_model, file = "../output/xgb_model.RData") #save Rdata
+  save(tm.xgb.train, file = "../output/tm.xgb.train.RData") #save Rdata
 }
 
 
@@ -475,7 +446,7 @@ for (v in unique(dat_train$label)){
 ```
 
 
-* evaluation
+### evaluation
 ```{r}
 accu <- sum(weight_test_improved * (xgb_pred_class == dat_test$label))/sum(weight_test_improved)
 cat("The accuracy of model",  accu*100, "%.\n")
@@ -492,6 +463,6 @@ cat("Time for training model=", tm.xgb.train[1], "s \n")
 cat("Time for testing model=", tm.xgb.test[1], "s \n")
 ```
 
-###Reference
+## Reference
 - Du, S., Tao, Y., & Martinez, A. M. (2014). Compound facial expressions of emotion. Proceedings of the National Academy of Sciences, 111(15), E1454-E1462.
 
