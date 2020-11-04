@@ -109,7 +109,7 @@ sample.reweight <- TRUE # run sample reweighting in model training
 run.cv <- TRUE # run cross-validation on the training set
 K <- 5  # number of CV folds
 run.xgb.rose <- FALSE # for evaluation using rose
-run.xgb.smote <- FALSE # for evaluating using smote
+run.xgb.smote <- TRUE # for evaluating using smote
 ```
 
 ### Using cross-validation or independent test set evaluation, we compare the performance of models with different specifications. In this Base Model gbm, we tune parameter k (the amount of trees) for decision trees with boost gradient.
@@ -351,6 +351,7 @@ save(dat_train_balanced_over_smote, file = "../output/dat_train_balanced_over_sm
 ```{r runcv}
 if(run.cv & run.xgb.rose){
   source("../lib/xgb_tune.R") #source file
+  source("../lib/xgb_cv.R")
   load("../output/dat_train_balanced_over_rose.RData") #load data
   
   depth <- c(5, 10, 15) #set parameters
@@ -363,6 +364,7 @@ if(run.cv & run.xgb.rose){
 }
 if(run.cv & run.xgb.smote){
   source("../lib/xgb_tune.R") #source file
+  source("../lib/xgb_cv.R")
   load("../output/dat_train_balanced_over_smote.RData") #load data
   
   depth <- c(5, 10, 15) #set parameters
@@ -417,6 +419,7 @@ load("../output/xgb_model.RData")
 load("../output/feature_test.RData")
 xgb_result_test <- xgb_test(xgb_model, dat_test[,-ncol(dat_test)])
 xgb_pred <- xgb_result_test[[1]]
+xgb_pred_class <- round(xgb_pred)
 tm.xgb.test <- xgb_result_test[[2]]
 save(tm.xgb.test, file = "../output/tm.xgb.test.RData") #save Rdata
 
@@ -429,8 +432,8 @@ for (v in unique(dat_train$label)){
 
 ### evaluation
 ```{r}
-accu.unweighted <- mean(dat_test$label == xgb_pred)
-accu <- sum(weight_test_improved * (xgb_pred == dat_test$label))/sum(weight_test_improved)
+accu.unweighted <- mean(dat_test$label == xgb_pred_class)
+accu <- sum(weight_test_improved * (xgb_pred_class == dat_test$label))/sum(weight_test_improved)
 cat("The accuracy of model",  accu*100, "%.\n")
 auc <- WeightedROC(xgb_pred, dat_test$label, weight_test_improved) %>% WeightedAUC
 cat("The AUC of model", "is", auc, ".\n")
