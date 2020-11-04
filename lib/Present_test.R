@@ -19,7 +19,7 @@ source("feature.R")
 source("feature_default.R")
 source("img_process.R")
 source("test_baseline_gbm.R")
-source("xgb_test.R")
+#source("xgb_test.R")
 run.test.real <- TRUE # Change this to TRUE when actually running!!!
 
 test_dir <- "../data/test_set_predict/" # For the presentation test set
@@ -66,8 +66,15 @@ for (i in 1:n_files){
 
 real_test_xgb <- feature(fiducial_pt_list_processed, test_index)
 real_test_xgb <- real_test_xgb %>% select(-label)
-pred_xgb <- xgb_test(xgb_model, real_test_xgb)[[1]] %>% round()
-
+#pred_xgb <- xgb_test(xgb_model, real_test_xgb)[[1]] %>% round()
+pred_xgb <- predict(
+  xgb_model, 
+  newdata = as.matrix(real_test_xgb), 
+  missing = NA, 
+  n.trees = 500, 
+  reshape = TRUE,
+  type = "response"
+) %>% round()
 # Safe csv file
 
 info$label <- pred_gbm
