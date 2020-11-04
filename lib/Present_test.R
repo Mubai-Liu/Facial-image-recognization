@@ -49,7 +49,7 @@ real_test <- feature_default(fiducial_pt_list, test_index)
 # Loading GBM
 load("../output/fit_train.RData")
 real_test <- real_test %>% select(-label)
-pred_gbm <- test(fit_train, real_test)
+pred_gbm <- test(fit_train, real_test)[[1]]
 
 # 1 mins for above code
 # ---------------# XGBoost
@@ -65,7 +65,7 @@ for (i in 1:n){
 
 real_test_xgb <- feature(fiducial_pt_list_processed, test_index)
 real_test_xgb <- real_test_xgb %>% select(-label)
-pred_xgb <- xgb_test(xgb_model, real_test_xgb)[[1]] %>% apply(1, which.max) - 1
+pred_xgb <- xgb_test(xgb_model, real_test_xgb)[[1]] %>% round()
 
 # Safe csv file
 
